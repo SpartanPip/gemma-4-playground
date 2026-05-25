@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemma 4 Chat</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface-hover: #252525;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --text-muted: #888;
+    --accent: #6c9eff;
+    --accent-dim: #3d6cbf;
+    --user-bg: #1e3a5f;
+    --assistant-bg: #1a1a1a;
+    --radius: 12px;
+    --max-width: 800px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- Header ---- */
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-icon {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+
+  .btn-icon:hover { background: var(--surface-hover); color: var(--text); }
+
+  /* ---- Settings Panel ---- */
+  .settings-panel {
+    display: none;
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    background: var(--surface);
+  }
+
+  .settings-panel.open { display: block; }
+
+  .settings-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .setting-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .setting-group textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  .setting-group textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+  .slider-row {
+    display: flex;
+    gap: 24px;
+  }
+
+  .slider-group {
+    flex: 1;
+  }
+
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .slider-group label span { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .slider-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  /* ---- Chat Area ---- */
+  .chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-messages {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .message {
+    display: flex;
+    gap: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .message.user .message-avatar {
+    background: var(--user-bg);
+    color: var(--accent);
+  }
+
+  .message.assistant .message-avatar {
+    background: linear-gradient(135deg, #4285f4, #ea4335, #fbbc04, #34a853);
+    color: white;
+    font-size: 12px;
+  }
+
+  .message-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .message-role {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .message-body {
+    font-size: 15px;
+    line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .message-body p { margin-bottom: 8px; }
+  .message-body p:last-child { margin-bottom: 0; }
+
+  .message-body pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .message-body code {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+  }
+
+  .message-body :not(pre) > code {
+    background: var(--surface-hover);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent);
+    margin-left: 2px;
+    animation: blink 0.8s step-end infinite;
+    vertical-align: text-bottom;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  .welcome {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-muted);
+  }
+
+  .welcome h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .welcome p { font-size: 15px; }
+
+  /* ---- Input Area ---- */
+  .input-area {
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    flex-shrink: 0;
+  }
+
+  .input-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .input-wrapper {
+    flex: 1;
+    position: relative;
+  }
+
+  #chat-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 12px 16px;
+    font-family: inherit;
+    font-size: 15px;
+    resize: none;
+    min-height: 48px;
+    max-height: 200px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+
+  #chat-input:focus { outline: none; border-color: var(--accent); }
+  #chat-input::placeholder { color: var(--text-muted); }
+
+  #send-btn {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+
+  #send-btn:hover { background: var(--accent-dim); }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .input-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+
+  /* ---- Status ---- */
+  .status-bar {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .status-bar.error { color: #ef4444; }
+  .status-bar.connected { color: #22c55e; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>Gemma 4</span> &nbsp;E4B Chat</h1>
+  <div class="header-actions">
+    <button class="btn-icon" id="settings-toggle" title="Settings">&#9881;</button>
+    <button class="btn-icon" id="clear-chat" title="Clear chat">&#8634;</button>
+  </div>
+</header>
+
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-inner">
+    <div class="setting-group">
+      <label for="system-prompt">System Prompt</label>
+      <textarea id="system-prompt" rows="2">You are a helpful assistant.</textarea>
+    </div>
+    <div class="slider-row">
+      <div class="slider-group">
+        <label>Temperature <span id="temp-val">0.7</span></label>
+        <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.7">
+      </div>
+      <div class="slider-group">
+        <label>Max Tokens <span id="tokens-val">2048</span></label>
+        <input type="range" id="max-tokens" min="64" max="8192" step="64" value="2048">
+      </div>
+    </div>
+    <div class="setting-group">
+      <label for="api-url">API Endpoint</label>
+      <textarea id="api-url" rows="1" style="min-height: 36px;">/v1/chat/completions</textarea>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar" id="status-bar">Checking server connection...</div>
+
+<div class="chat-container" id="chat-container">
+  <div class="chat-messages" id="chat-messages">
+    <div class="welcome">
+      <h2>Gemma 4 E4B Playground</h2>
+      <p>Running locally on your machine. Start a conversation below.</p>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-inner">
+    <div class="input-wrapper">
+      <textarea id="chat-input" placeholder="Send a message..." rows="1"></textarea>
+    </div>
+    <button id="send-btn" title="Send">&#9654;</button>
+  </div>
+  <div class="input-hint">Enter to send &middot; Shift+Enter for new line</div>
+</div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const chatMessages = $('#chat-messages');
+const chatContainer = $('#chat-container');
+const chatInput = $('#chat-input');
+const sendBtn = $('#send-btn');
+const statusBar = $('#status-bar');
+const settingsPanel = $('#settings-panel');
+const tempSlider = $('#temperature');
+const tokensSlider = $('#max-tokens');
+const tempVal = $('#temp-val');
+const tokensVal = $('#tokens-val');
+
+let conversationHistory = [];
+let isGenerating = false;
+let abortController = null;
+
+// --- Settings wiring ---
+$('#settings-toggle').addEventListener('click', () => {
+  settingsPanel.classList.toggle('open');
+});
+
+$('#clear-chat').addEventListener('click', () => {
+  conversationHistory = [];
+  chatMessages.innerHTML = `
+    <div class="welcome">
+      <h2>Gemma 4 E4B Playground</h2>
+      <p>Running locally on your machine. Start a conversation below.</p>
+    </div>`;
+  chatInput.focus();
+});
+
+tempSlider.addEventListener('input', () => { tempVal.textContent = tempSlider.value; });
+tokensSlider.addEventListener('input', () => { tokensVal.textContent = tokensSlider.value; });
+
+// --- Auto-resize textarea ---
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
+});
+
+// --- Send on Enter ---
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!isGenerating) sendMessage();
+  }
+});
+
+sendBtn.addEventListener('click', () => {
+  if (isGenerating) {
+    stopGeneration();
+  } else {
+    sendMessage();
+  }
+});
+
+// --- Server health check ---
+async function checkServer() {
+  const apiUrl = $('#api-url').value;
+  const url = apiUrl.startsWith('http')
+    ? apiUrl.replace('/v1/chat/completions', '/health')
+    : '/health';
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      statusBar.textContent = 'Connected to local llama-server';
+      statusBar.className = 'status-bar connected';
+    } else {
+      throw new Error('not ok');
+    }
+  } catch {
+    statusBar.textContent = 'Server not running — start it with ./start-server.sh';
+    statusBar.className = 'status-bar error';
+  }
+}
+
+checkServer();
+setInterval(checkServer, 10000);
+
+// --- Markdown-lite rendering ---
+function renderMarkdown(text) {
+  let html = text
+    // code blocks
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code>${escapeHtml(code.trim())}</code></pre>`)
+    // inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // line breaks -> paragraphs
+    .split(/\n{2,}/)
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  return html;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// --- Add message bubble ---
+function addMessage(role, content) {
+  // Remove welcome screen on first message
+  const welcome = chatMessages.querySelector('.welcome');
+  if (welcome) welcome.remove();
+
+  const msg = document.createElement('div');
+  msg.className = `message ${role}`;
+
+  const avatarLabel = role === 'user' ? 'U' : 'G';
+  msg.innerHTML = `
+    <div class="message-avatar">${avatarLabel}</div>
+    <div class="message-content">
+      <div class="message-role">${role === 'user' ? 'You' : 'Gemma 4'}</div>
+      <div class="message-body">${role === 'user' ? escapeHtml(content).replace(/\n/g, '<br>') : renderMarkdown(content)}</div>
+    </div>`;
+  chatMessages.appendChild(msg);
+  scrollToBottom();
+  return msg;
+}
+
+function scrollToBottom() {
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function stopGeneration() {
+  if (abortController) abortController.abort();
+  isGenerating = false;
+  sendBtn.innerHTML = '&#9654;';
+  const cursor = chatMessages.querySelector('.cursor-blink');
+  if (cursor) cursor.remove();
+}
+
+// --- Send message & stream response ---
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+
+  addMessage('user', text);
+  conversationHistory.push({ role: 'user', content: text });
+
+  isGenerating = true;
+  sendBtn.innerHTML = '&#9632;';
+  sendBtn.disabled = false;
+
+  const assistantMsg = addMessage('assistant', '');
+  const bodyEl = assistantMsg.querySelector('.message-body');
+  bodyEl.innerHTML = '<span class="cursor-blink"></span>';
+
+  const systemPrompt = $('#system-prompt').value.trim();
+  const messages = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push(...conversationHistory);
+
+  abortController = new AbortController();
+
+  try {
+    const res = await fetch($('#api-url').value, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: abortController.signal,
+      body: JSON.stringify({
+        messages,
+        temperature: parseFloat(tempSlider.value),
+        max_tokens: parseInt(tokensSlider.value),
+        stream: true
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Server error ${res.status}: ${err}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            bodyEl.innerHTML = renderMarkdown(fullText) + '<span class="cursor-blink"></span>';
+            scrollToBottom();
+          }
+        } catch { /* skip malformed chunks */ }
+      }
+    }
+
+    bodyEl.innerHTML = renderMarkdown(fullText);
+    conversationHistory.push({ role: 'assistant', content: fullText });
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const partialText = bodyEl.textContent;
+      bodyEl.innerHTML = renderMarkdown(partialText);
+      if (partialText) conversationHistory.push({ role: 'assistant', content: partialText });
+    } else {
+      bodyEl.innerHTML = `<p style="color:#ef4444">Error: ${escapeHtml(err.message)}</p>`;
+      console.error(err);
+    }
+  } finally {
+    isGenerating = false;
+    sendBtn.innerHTML = '&#9654;';
+    abortController = null;
+    chatInput.focus();
+  }
+}
+</script>
+</body>
+</html>
