@@ -1,2 +1,6 @@
 models/
 .DS_Store
+voice/.venv/
+voice/voices/
+__pycache__/
+.pytest_cache/

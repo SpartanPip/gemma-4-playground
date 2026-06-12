@@ -13,11 +13,21 @@ if [ ! -f "$MODEL_PATH" ]; then
   exit 1
 fi
 
+VOICE_PYTHON="$SCRIPT_DIR/voice/.venv/bin/python"
+if [ -x "$VOICE_PYTHON" ]; then
+  echo "Starting voice server (Parakeet STT + Chatterbox TTS) on 127.0.0.1:8090 ..."
+  "$VOICE_PYTHON" "$SCRIPT_DIR/voice/voice_server.py" &
+  VOICE_PID=$!
+  trap 'kill "$VOICE_PID" 2>/dev/null || true' EXIT
+else
+  echo "Voice server not set up — run ./voice/setup.sh to enable speech. Continuing text-only."
+fi
+
 echo "Starting Gemma 4 E4B (Q4_K_M) on localhost:8080 ..."
 echo "Chat UI: http://127.0.0.1:8080"
 echo ""
 
-exec llama-server \
+llama-server \
   -m "$MODEL_PATH" \
   --chat-template gemma \
   --no-jinja \

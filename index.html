@@ -75,6 +75,38 @@
 
   .btn-icon:hover { background: var(--surface-hover); color: var(--text); }
 
+  .btn-icon.active { color: var(--accent); border-color: var(--accent-dim); }
+
+  #mic-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  #mic-btn:hover { background: var(--surface-hover); color: var(--text); }
+  #mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #mic-btn.recording {
+    background: #7f1d1d;
+    border-color: #ef4444;
+    color: #fff;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.25); }
+  }
+
   /* ---- Settings Panel ---- */
   .settings-panel {
     display: none;
@@ -143,6 +175,117 @@
   .slider-group input[type="range"] {
     width: 100%;
     accent-color: var(--accent);
+  }
+
+  /* ---- Layout: sidebar + chat ---- */
+  .main-row {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  .chat-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ---- Voice Sidebar ---- */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .sidebar-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 0 4px;
+  }
+
+  .voice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .voice-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    border: 1px solid transparent;
+    overflow: hidden;
+  }
+
+  .voice-item:hover { background: var(--surface-hover); }
+
+  .voice-item.selected {
+    background: var(--user-bg);
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+
+  .voice-item .voice-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .voice-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 0 2px;
+    visibility: hidden;
+  }
+
+  .voice-item:hover .voice-del { visibility: visible; }
+  .voice-del:hover { color: #ef4444; }
+
+  #record-voice-btn {
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  #record-voice-btn:hover { border-color: var(--accent); }
+  #record-voice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #record-voice-btn.recording {
+    background: #7f1d1d;
+    border-color: #ef4444;
+    color: #fff;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .voice-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    padding: 0 4px;
   }
 
   /* ---- Chat Area ---- */
@@ -354,6 +497,7 @@
 <header>
   <h1><span>Gemma 4</span> &nbsp;E4B Chat</h1>
   <div class="header-actions">
+    <button class="btn-icon" id="voice-toggle" title="Speak replies aloud">&#128266;</button>
     <button class="btn-icon" id="settings-toggle" title="Settings">&#9881;</button>
     <button class="btn-icon" id="clear-chat" title="Clear chat">&#8634;</button>
   </div>
@@ -379,10 +523,25 @@
       <label for="api-url">API Endpoint</label>
       <textarea id="api-url" rows="1" style="min-height: 36px;">/v1/chat/completions</textarea>
     </div>
+    <div class="setting-group">
+      <label for="voice-url">Voice Server (Parakeet STT + Chatterbox TTS)</label>
+      <textarea id="voice-url" rows="1" style="min-height: 36px;">http://127.0.0.1:8090</textarea>
+    </div>
   </div>
 </div>
 
 <div class="status-bar" id="status-bar">Checking server connection...</div>
+
+<div class="main-row">
+
+<aside class="sidebar">
+  <div class="sidebar-title">Voices</div>
+  <div class="voice-list" id="voice-list"></div>
+  <button id="record-voice-btn">&#9210; Record new voice</button>
+  <div class="voice-hint">Record ~10 seconds of natural speech and Chatterbox will clone the voice for replies.</div>
+</aside>
+
+<div class="chat-column">
 
 <div class="chat-container" id="chat-container">
   <div class="chat-messages" id="chat-messages">
@@ -398,10 +557,14 @@
     <div class="input-wrapper">
       <textarea id="chat-input" placeholder="Send a message..." rows="1"></textarea>
     </div>
+    <button id="mic-btn" title="Hold a conversation — click to talk">&#127908;</button>
     <button id="send-btn" title="Send">&#9654;</button>
   </div>
-  <div class="input-hint">Enter to send &middot; Shift+Enter for new line</div>
+  <div class="input-hint">Enter to send &middot; Shift+Enter for new line &middot; &#127908; to talk</div>
 </div>
+
+</div><!-- /.chat-column -->
+</div><!-- /.main-row -->
 
 <script>
 const $ = (sel) => document.querySelector(sel);
@@ -416,9 +579,269 @@ const tokensSlider = $('#max-tokens');
 const tempVal = $('#temp-val');
 const tokensVal = $('#tokens-val');
 
+const micBtn = $('#mic-btn');
+const voiceToggle = $('#voice-toggle');
+
 let conversationHistory = [];
 let isGenerating = false;
 let abortController = null;
+
+// --- Voice state ---
+let voiceServerUp = false;
+let speechEnabled = localStorage.getItem('speechEnabled') !== 'false';
+let speechEpoch = 0;        // bumped to cancel queued/playing speech
+let speechCursor = 0;       // chars of the streaming reply already spoken
+let playChain = Promise.resolve();
+let currentAudio = null;
+let mediaRecorder = null;
+
+const voiceUrl = () => $('#voice-url').value.trim().replace(/\/$/, '');
+
+function renderVoiceToggle() {
+  voiceToggle.innerHTML = speechEnabled ? '&#128266;' : '&#128263;';
+  voiceToggle.classList.toggle('active', speechEnabled);
+  voiceToggle.title = speechEnabled ? 'Voice replies on — click to mute' : 'Voice replies off — click to unmute';
+}
+
+voiceToggle.addEventListener('click', () => {
+  speechEnabled = !speechEnabled;
+  localStorage.setItem('speechEnabled', speechEnabled);
+  if (!speechEnabled) stopSpeech();
+  renderVoiceToggle();
+});
+
+renderVoiceToggle();
+
+// --- Voice library (sidebar) ---
+const voiceList = $('#voice-list');
+const recordVoiceBtn = $('#record-voice-btn');
+let selectedVoice = localStorage.getItem('selectedVoice') || '';
+let voicesLoaded = false;
+let voiceRecorder = null;
+
+function selectVoice(name) {
+  selectedVoice = name;
+  localStorage.setItem('selectedVoice', name);
+  voiceList.querySelectorAll('.voice-item').forEach(el =>
+    el.classList.toggle('selected', el.dataset.voice === name));
+}
+
+function renderVoiceList(voices) {
+  if (selectedVoice && !voices.includes(selectedVoice)) selectVoice('');
+  voiceList.innerHTML = '';
+  const addItem = (value, label, deletable) => {
+    const item = document.createElement('div');
+    item.className = 'voice-item' + (value === selectedVoice ? ' selected' : '');
+    item.dataset.voice = value;
+    const name = document.createElement('span');
+    name.className = 'voice-name';
+    name.textContent = label;
+    item.appendChild(name);
+    if (deletable) {
+      const del = document.createElement('button');
+      del.className = 'voice-del';
+      del.title = 'Delete voice';
+      del.innerHTML = '&times;';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete voice "${label}"?`)) return;
+        await fetch(voiceUrl() + '/voices/' + encodeURIComponent(value), { method: 'DELETE' }).catch(() => {});
+        loadVoices();
+      });
+      item.appendChild(del);
+    }
+    item.addEventListener('click', () => selectVoice(value));
+    voiceList.appendChild(item);
+  };
+  addItem('', 'Built-in', false);
+  voices.forEach(v => addItem(v, v.replace(/\.wav$/, ''), true));
+}
+
+async function loadVoices() {
+  try {
+    const res = await fetch(voiceUrl() + '/voices');
+    if (!res.ok) throw new Error();
+    renderVoiceList((await res.json()).voices);
+    voicesLoaded = true;
+  } catch {
+    renderVoiceList([]);
+  }
+}
+
+renderVoiceList([]);
+
+recordVoiceBtn.addEventListener('click', async () => {
+  if (voiceRecorder && voiceRecorder.state === 'recording') {
+    voiceRecorder.stop();
+    return;
+  }
+  if (mediaRecorder && mediaRecorder.state === 'recording') return; // chat mic is busy
+  const name = (prompt('Name this voice:') || '').trim();
+  if (!name) return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    statusBar.textContent = `Mic error (${err.name}) — see mic button for help`;
+    statusBar.className = 'status-bar error';
+    return;
+  }
+  stopSpeech();
+  const mime = ['audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const chunks = [];
+  voiceRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  voiceRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  voiceRecorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    recordVoiceBtn.classList.remove('recording');
+    recordVoiceBtn.innerHTML = '&#9210; Record new voice';
+    recordVoiceBtn.disabled = true;
+    try {
+      const type = voiceRecorder.mimeType || mime || 'audio/webm';
+      const form = new FormData();
+      form.append('name', name);
+      form.append('audio', new Blob(chunks, { type }), type.includes('mp4') ? 'clip.m4a' : 'clip.webm');
+      const res = await fetch(voiceUrl() + '/voices', { method: 'POST', body: form });
+      if (!res.ok) throw new Error((await res.json()).detail || `upload failed (${res.status})`);
+      const { voice } = await res.json();
+      await loadVoices();
+      selectVoice(voice);
+      statusBar.textContent = `Voice "${voice.replace(/\.wav$/, '')}" saved and selected`;
+      statusBar.className = 'status-bar connected';
+    } catch (err) {
+      statusBar.textContent = 'Could not save voice: ' + err.message;
+      statusBar.className = 'status-bar error';
+    } finally {
+      recordVoiceBtn.disabled = false;
+      voiceRecorder = null;
+    }
+  };
+  voiceRecorder.start();
+  recordVoiceBtn.classList.add('recording');
+  recordVoiceBtn.innerHTML = '&#9209; Stop &amp; save';
+});
+
+// --- Text-to-speech playback queue ---
+// Each sentence is fetched as soon as it's enqueued; playback stays strictly
+// in order via the promise chain. Bumping speechEpoch discards stale audio.
+function speakSentence(text) {
+  const epoch = speechEpoch;
+  const payload = { text };
+  if (selectedVoice) payload.voice = selectedVoice;
+  const audioPromise = fetch(voiceUrl() + '/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.ok ? r.blob() : null).catch(() => null);
+
+  playChain = playChain.then(async () => {
+    if (epoch !== speechEpoch) return;
+    const blob = await audioPromise;
+    if (!blob || epoch !== speechEpoch) return;
+    await new Promise((resolve) => {
+      const audio = new Audio(URL.createObjectURL(blob));
+      currentAudio = audio;
+      audio.onended = audio.onerror = () => { URL.revokeObjectURL(audio.src); resolve(); };
+      audio.play().catch(resolve);
+    });
+  });
+}
+
+function stopSpeech() {
+  speechEpoch++;
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  playChain = Promise.resolve();
+}
+
+// --- Sentence chunking of the streaming reply ---
+const fenceBalanced = (text) => ((text.match(/```/g) || []).length % 2) === 0;
+
+function flushSpeech(fullText, final = false) {
+  if (!speechEnabled || !voiceServerUp) return;
+  let chunk;
+  if (final) {
+    chunk = fullText.slice(speechCursor);
+    speechCursor = fullText.length;
+  } else {
+    const pending = fullText.slice(speechCursor);
+    let cut = -1;
+    const re = /[.!?\n](?=[)"'\]]*(\s|$))/g;
+    let m;
+    while ((m = re.exec(pending)) !== null) cut = m.index + 1;
+    if (cut < 0) return;
+    // Don't speak while inside an unclosed code block.
+    if (!fenceBalanced(fullText.slice(0, speechCursor + cut))) return;
+    chunk = pending.slice(0, cut);
+    speechCursor += cut;
+  }
+  const text = chunk.trim();
+  if (text) speakSentence(text);
+}
+
+// --- Microphone -> Parakeet STT ---
+async function startRecording() {
+  let stream;
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new DOMException('Page must be served from http://127.0.0.1:8080', 'SecurityError');
+    }
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    const hints = {
+      NotAllowedError: 'Mic blocked. If you allowed it on the page, macOS is blocking the browser: System Settings → Privacy & Security → Microphone → enable your browser, then restart it.',
+      NotFoundError: 'No microphone detected — check input devices in System Settings → Sound.',
+      NotReadableError: 'Microphone is in use by another app.',
+    };
+    statusBar.textContent = hints[err.name] || `Mic error (${err.name}): ${err.message}`;
+    statusBar.className = 'status-bar error';
+    return;
+  }
+  const mime = ['audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const chunks = [];
+  mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  mediaRecorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    micBtn.classList.remove('recording');
+    micBtn.disabled = true;
+    statusBar.textContent = 'Transcribing...';
+    statusBar.className = 'status-bar';
+    try {
+      const type = mediaRecorder.mimeType || mime || 'audio/webm';
+      const ext = type.includes('mp4') ? 'm4a' : 'webm';
+      const form = new FormData();
+      form.append('audio', new Blob(chunks, { type }), `clip.${ext}`);
+      const res = await fetch(voiceUrl() + '/stt', { method: 'POST', body: form });
+      if (!res.ok) throw new Error(`STT failed (${res.status})`);
+      const { text } = await res.json();
+      if (text) {
+        chatInput.value = text;
+        if (!isGenerating) sendMessage();
+      } else {
+        statusBar.textContent = "Didn't catch that — try again";
+      }
+      checkServer();
+    } catch (err) {
+      statusBar.textContent = 'Transcription error: ' + err.message;
+      statusBar.className = 'status-bar error';
+    } finally {
+      micBtn.disabled = false;
+      mediaRecorder = null;
+    }
+  };
+  mediaRecorder.start();
+  micBtn.classList.add('recording');
+  micBtn.title = 'Recording — click to stop';
+}
+
+micBtn.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  } else if (!micBtn.disabled) {
+    stopSpeech();
+    startRecording();
+  }
+});
 
 // --- Settings wiring ---
 $('#settings-toggle').addEventListener('click', () => {
@@ -426,6 +849,7 @@ $('#settings-toggle').addEventListener('click', () => {
 });
 
 $('#clear-chat').addEventListener('click', () => {
+  stopSpeech();
   conversationHistory = [];
   chatMessages.innerHTML = `
     <div class="welcome">
@@ -468,12 +892,21 @@ async function checkServer() {
     : '/health';
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    if (res.ok) {
-      statusBar.textContent = 'Connected to local llama-server';
-      statusBar.className = 'status-bar connected';
-    } else {
-      throw new Error('not ok');
+    if (!res.ok) throw new Error('not ok');
+    try {
+      const v = await fetch(voiceUrl() + '/health', { signal: AbortSignal.timeout(3000) });
+      voiceServerUp = v.ok;
+    } catch {
+      voiceServerUp = false;
     }
+    statusBar.textContent = voiceServerUp
+      ? 'Connected to llama-server · voice ready'
+      : 'Connected to llama-server · voice server offline (text only)';
+    statusBar.className = 'status-bar connected';
+    micBtn.disabled = !voiceServerUp;
+    micBtn.title = voiceServerUp ? 'Hold a conversation — click to talk' : 'Voice server offline';
+    recordVoiceBtn.disabled = !voiceServerUp;
+    if (voiceServerUp && !voicesLoaded) loadVoices();
   } catch {
     statusBar.textContent = 'Server not running — start it with ./start-server.sh';
     statusBar.className = 'status-bar error';
@@ -533,6 +966,7 @@ function scrollToBottom() {
 
 function stopGeneration() {
   if (abortController) abortController.abort();
+  stopSpeech();
   isGenerating = false;
   sendBtn.innerHTML = '&#9654;';
   const cursor = chatMessages.querySelector('.cursor-blink');
@@ -550,6 +984,8 @@ async function sendMessage() {
   addMessage('user', text);
   conversationHistory.push({ role: 'user', content: text });
 
+  stopSpeech();
+  speechCursor = 0;
   isGenerating = true;
   sendBtn.innerHTML = '&#9632;';
   sendBtn.disabled = false;
@@ -607,6 +1043,7 @@ async function sendMessage() {
           const delta = json.choices?.[0]?.delta?.content;
           if (delta) {
             fullText += delta;
+            flushSpeech(fullText);
             bodyEl.innerHTML = renderMarkdown(fullText) + '<span class="cursor-blink"></span>';
             scrollToBottom();
           }
@@ -614,6 +1051,7 @@ async function sendMessage() {
       }
     }
 
+    flushSpeech(fullText, true);
     bodyEl.innerHTML = renderMarkdown(fullText);
     conversationHistory.push({ role: 'assistant', content: fullText });
 

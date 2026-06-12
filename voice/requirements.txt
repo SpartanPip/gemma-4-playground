@@ -1,0 +1,7 @@
+chatterbox-tts
+parakeet-mlx
+fastapi
+uvicorn[standard]
+python-multipart
+pytest
+httpx
